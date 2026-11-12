@@ -13,7 +13,7 @@
  */
 const MAX_NOTE = 6000;
 
-const noteContext = ({ page, section, q, body }) => `Study notes of a Go backend engineer preparing for interviews.
+const noteContext = ({ page, section, q, body }) => `Interview-prep notes of a backend engineer.
 Page: ${page}${section ? ` → ${section}` : ''}
 Question: ${q}
 
@@ -22,18 +22,38 @@ ${String(body).slice(0, MAX_NOTE)}`;
 
 /* ── Привести пример ──────────────────────────────────────── */
 
+/*
+ * Пример уходил в сторону: модель брала код на Go для любого вопроса (в том
+ * числе про Scrum и 1:1) и отталкивалась от «дай другой случай, не из
+ * конспекта». Теперь она сначала называет утверждение из ответа, которое
+ * иллюстрирует (поле `point`), и форму выбирает по теме вопроса. Поле
+ * показывается над примером — по нему видно, попал ли пример в вопрос.
+ */
 export const examplePrompt = (ctx) => `
 ${noteContext(ctx)}
 
-Give ONE concrete example that makes this answer land: real code (Go unless the question is about something else), a real command, or a short real situation from a production system — whichever fits the question.
+Task: give ONE example that illustrates THIS question and the answer in the notes — nothing else.
+
+First pick the single most important claim the notes make in answer to the question. The example must demonstrate exactly that claim.
+
+Choose the form by what the question is about:
+- a language feature, library or code behaviour → a short code snippet;
+- databases and queries → SQL (or the driver call, if the question is about the driver);
+- infrastructure (Docker, Kubernetes, Terraform, CI/CD, Linux) → the config file or the command;
+- architecture and system design → a concrete scenario with named services and what happens step by step; add code only if it makes the point clearer;
+- process, team, leadership, behaviour → a short realistic situation from a team (what happened, what was done, the result), no code.
+
+Code language: the one the question or the page is about (Python page → Python, SQL → SQL, Kubernetes → YAML or kubectl). Go only when the question is about Go or is a language-neutral backend question.
 
 Rules:
-- Do not repeat an example already written in the notes: give a different case.
-- Stay inside what the notes claim; never contradict them.
-- "example": the example itself, in Markdown. Put any code in a fenced block with the language (\`\`\`go, \`\`\`sql, \`\`\`bash, \`\`\`yaml) and keep real line breaks and indentation; one short sentence before the block may say what it is. Keep code lines under 52 characters — this is read on a phone.
-- "why": two or three sentences on what exactly the example shows and what breaks if you do it the other way.
+- Stay on this question. No neighbouring topics, no generic advice. If the example would fit another question just as well, it is the wrong example.
+- Never contradict the notes. You may build on a scenario from the notes, but do not copy an example that is already there.
+- Keep it short: code up to ~15 lines, a situation in 3–5 sentences.
+- "point": the claim from the notes that the example illustrates, one sentence.
+- "example": the example in Markdown. Code goes in a fenced block with the language (\`\`\`go, \`\`\`python, \`\`\`sql, \`\`\`bash, \`\`\`yaml) with real line breaks and indentation; one short sentence before the block may say what it is. Keep code lines under 52 characters — this is read on a phone.
+- "why": two or three sentences on how the example shows the point and what goes wrong if it is done differently.
 
-Return JSON: {"example":"...","why":"..."}`;
+Return JSON: {"point":"...","example":"...","why":"..."}`;
 
 /* ── Уточняющий вопрос ────────────────────────────────────── */
 

@@ -58,6 +58,11 @@ export function mountQuestionAi(slot, ctx) {
     (res) => {
       out.innerHTML = `
         <div class="result-card">
+          ${res.point ? `
+            <div class="gen-item">
+              <div class="gen-label">Что иллюстрирует</div>
+              <div class="md">${renderMd(res.point)}</div>
+            </div>` : ''}
           <div class="gen-item">
             <div class="gen-label">Пример</div>
             <div class="md">${renderMd(res.example || '')}</div>

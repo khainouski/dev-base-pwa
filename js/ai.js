@@ -40,7 +40,7 @@ function levelLine(levelId) {
  * живёт в js/prompts.js — здесь только то, что верно всегда.
  */
 function systemFor(level) {
-  return `You are helping a Russian-speaking Go backend engineer prepare for technical interviews: Go and concurrency, databases, microservices, infrastructure, process and team lead questions.
+  return `You are helping a Russian-speaking backend engineer (mainly Go, also Python) prepare for technical interviews: languages and concurrency, databases, microservices, infrastructure, LLM apps, process and team lead questions.
 You are given the engineer's own notes for one interview question. Work strictly from them: never contradict the notes, never answer a different question than the one asked.
 Calibration: ${levelLine(level)}.
 Write everything the learner reads — questions, explanations, verdicts — in Russian. Keep English for terminology, code, flags, file names and API fields; do not translate them.
@@ -166,7 +166,15 @@ const claude = {
 };
 
 const gemini = {
-  async ask({ key, model, system, prompt, temperature }) {
+  /*
+   * Начиная с Gemini 3.6 модели думают по умолчанию, и в ответе рядом с JSON
+   * бывают части с размышлениями (`thought: true`). Склеенные вместе, они
+   * ломали разбор: «Не удалось разобрать ответ». Берём только сам ответ.
+   *
+   * `temperature` не отправляем: у Gemini 3.6+ параметр устарел, API его
+   * игнорирует, а в следующих поколениях обещает за него 400.
+   */
+  async ask({ key, model, system, prompt }) {
     const payload = await request(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -175,15 +183,40 @@ const gemini = {
         body: {
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature, responseMimeType: 'application/json' },
+          generationConfig: { responseMimeType: 'application/json' },
         },
       },
     );
 
     const cand = payload.candidates?.[0];
-    if (!cand) throw new AiError('Пустой ответ. Попробуй ещё раз.', { code: 'empty' });
-    const text = (cand.content?.parts || []).map((p) => p.text || '').join('');
-    return parseJson(text);
+    if (!cand) {
+      const reason = payload.promptFeedback?.blockReason;
+      throw new AiError(
+        reason ? `Запрос заблокирован фильтром Gemini (${reason}).` : 'Пустой ответ. Попробуй ещё раз.',
+        { code: reason ? 'blocked' : 'empty' },
+      );
+    }
+
+    const text = (cand.content?.parts || [])
+      .filter((p) => !p.thought)
+      .map((p) => p.text || '')
+      .join('');
+
+    // Обрезанный JSON не разобрать — честнее сказать, почему он обрезан.
+    if (cand.finishReason === 'MAX_TOKENS') {
+      throw new AiError('Ответ модели оборвался на лимите длины. Попробуй ещё раз или другую модель.', { code: 'truncated' });
+    }
+    if (cand.finishReason && !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(cand.finishReason) && !text.trim()) {
+      throw new AiError(`Gemini не дал ответа (${cand.finishReason}).`, { code: 'blocked' });
+    }
+
+    try {
+      return parseJson(text);
+    } catch (err) {
+      // Сырой ответ — в консоль: по нему видно, что именно пришло не так.
+      console.warn('[gemini] не разобран ответ', { model, finishReason: cand.finishReason, text });
+      throw err;
+    }
   },
 
   async test({ key, model }) {
