@@ -28,9 +28,12 @@ export const PROVIDERS = [
     label: 'Gemini (Google)',
     keyHint: 'AIza…',
     keyUrl: 'https://aistudio.google.com/apikey',
+    // Только стабильные модели из списка Google: preview-версии выключают без
+    // предупреждения, а несуществующий id даёт 404 на каждом запросе.
     models: [
-      { id: 'gemini-3.7-flash', label: 'мощнее' },
-      { id: 'gemini-3.5-flash-lite', label: 'дешёвая, лимиты выше' },
+      { id: 'gemini-3.8-flash', label: 'самая сильная, для примеров кода' },
+      { id: 'gemini-3.6-flash', label: 'баланс скорости и качества' },
+      { id: 'gemini-3.5-flash-lite', label: 'дешёвая, лимиты выше, слабее в коде' },
     ],
   },
 ];

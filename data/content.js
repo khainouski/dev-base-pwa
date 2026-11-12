@@ -40,6 +40,7 @@ export const FOLDERS = [
     pages: [
       { id: 'general-questions', title: 'Общие вопросы', sub: 'Опыт, команда, процессы, ревью' },
       { id: 'golang', title: 'Golang', sub: 'Строки, слайсы, мапы, каналы, контекст' },
+      { id: 'python', title: 'Python', sub: 'Основы, микросервисы, работа с LLM' },
       { id: 'microservices-patterns', title: 'Микросервисы и паттерны', sub: 'Saga, outbox, circuit breaker' },
       { id: 'databases', title: 'Базы данных', sub: 'Транзакции, индексы, MVCC, Mongo' },
       { id: 'brokers', title: 'Брокеры сообщений', sub: 'Kafka, RabbitMQ, гарантии доставки' },

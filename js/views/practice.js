@@ -1,6 +1,7 @@
 import { ask, NoKeyError } from '../ai.js';
 import * as P from '../prompts.js';
-import { errorBox, esc, loading, mdLite } from '../ui.js';
+import { errorBox, esc, loading } from '../ui.js';
+import { renderMd } from '../markdown.js';
 
 /**
  * Две кнопки под каждым вопросом.
@@ -9,8 +10,9 @@ import { errorBox, esc, loading, mdLite } from '../ui.js';
  *   «Уточнить» — свободный вопрос про этот же ответ.
  *
  * Контекстом уходит сам конспект (js/prompts.js), поэтому модель отвечает по
- * записанному, а не вообще. Всё, что она вернула, — недоверенный текст и
- * выводится только через esc()/mdLite().
+ * записанному, а не вообще. Всё, что она вернула, — недоверенный текст:
+ * он рисуется через renderMd(), который экранирует HTML, — так блоки кода
+ * от модели выглядят так же, как в самом конспекте, а не сливаются в строку.
  *
  * @param {HTMLElement} slot  пустой контейнер внутри карточки вопроса
  * @param {{page: string, section: string, q: string, body: string}} ctx
@@ -58,12 +60,12 @@ export function mountQuestionAi(slot, ctx) {
         <div class="result-card">
           <div class="gen-item">
             <div class="gen-label">Пример</div>
-            <div class="gen-en">${mdLite(res.example || '')}</div>
+            <div class="md">${renderMd(res.example || '')}</div>
           </div>
           ${res.why ? `
             <div class="gen-item">
               <div class="gen-label">Что он показывает</div>
-              <div class="gen-why">${mdLite(res.why)}</div>
+              <div class="md">${renderMd(res.why)}</div>
             </div>` : ''}
         </div>`;
     },
@@ -81,16 +83,16 @@ export function mountQuestionAi(slot, ctx) {
     return run(sendBtn, 'Спросить', 'Читаю конспект…', P.askPrompt(ctx, question), (res) => {
       out.innerHTML = `
         <div class="result-card">
-          <div class="gen-item"><div class="gen-en">${mdLite(res.answer || '')}</div></div>
+          <div class="gen-item"><div class="md">${renderMd(res.answer || '')}</div></div>
           ${res.example ? `
             <div class="gen-item">
               <div class="gen-label">Пример</div>
-              <div class="gen-why">${mdLite(res.example)}</div>
+              <div class="md">${renderMd(res.example)}</div>
             </div>` : ''}
           ${res.gap ? `
             <div class="gen-item gap">
               <div class="gen-label">За пределами конспекта</div>
-              <div class="gen-why">${esc(res.gap)}</div>
+              <div class="md">${renderMd(res.gap)}</div>
             </div>` : ''}
         </div>`;
     });

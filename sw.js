@@ -8,7 +8,7 @@
  * API провайдеров → мимо кэша вообще.
  */
 
-const VERSION = 'v5';
+const VERSION = 'v8';
 const CACHE = `devbase-${VERSION}`;
 
 /** Документ оболочки кэшируется отдельно, см. precache. */
@@ -46,6 +46,7 @@ const SHELL = [
   './data/md/company/packages.md',
   './data/md/general/general-questions.md',
   './data/md/general/golang.md',
+  './data/md/general/python.md',
   './data/md/general/microservices-patterns.md',
   './data/md/general/databases.md',
   './data/md/general/brokers.md',
