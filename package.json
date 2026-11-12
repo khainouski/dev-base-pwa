@@ -1,0 +1,9 @@
+{
+  "name": "dev-base-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Личная база вопросов к собеседованиям с разбором от AI. PWA, без сборки.",
+  "scripts": {
+    "dev": "npx --yes serve@14 -l 3000 ."
+  }
+}
