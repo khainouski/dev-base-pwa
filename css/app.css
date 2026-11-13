@@ -489,6 +489,13 @@ body:has(.install-bar) .app { padding-bottom: calc(150px + env(safe-area-inset-b
 .md b, .md strong { font-weight: 620; }
 .md ul, .md ol { margin: 0 0 12px; padding-left: 22px; }
 .md li { margin: 5px 0; }
+/*
+ * Пункт может содержать несколько блоков (текст, код, подсписок). Их
+ * собственные отступы внутри пункта убираем и ставим один ровный между
+ * соседями — иначе текст пункта отрывается от своего подсписка.
+ */
+.md li > p, .md li > pre, .md li > .table-scroll, .md li > blockquote { margin: 0; }
+.md li > * + * { margin-top: 8px; }
 .md li > ul, .md li > ol { margin: 5px 0 0; }
 .md code {
   font-family: var(--mono); font-size: 13px;
@@ -549,4 +556,11 @@ body:has(.install-bar) .app { padding-bottom: calc(150px + env(safe-area-inset-b
 .doc h3 {
   font-size: 16.5px; color: var(--text); margin: 28px 0 10px;
   padding-bottom: 6px; border-bottom: 1px solid var(--line);
+}
+
+/* Сырой ответ модели под ошибкой — для диагностики, длинные строки переносятся. */
+.err-detail pre {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 220px; overflow: auto;
+  background: var(--surface-2); border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
 }

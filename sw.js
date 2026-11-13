@@ -8,7 +8,7 @@
  * API провайдеров → мимо кэша вообще.
  */
 
-const VERSION = 'v10';
+const VERSION = 'v12';
 const CACHE = `devbase-${VERSION}`;
 
 /** Документ оболочки кэшируется отдельно, см. precache. */

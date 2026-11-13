@@ -40,21 +40,26 @@ export function mountQuestionAi(slot, ctx) {
   const out = slot.querySelector('.q-out');
 
   /** Запрос с подменой подписи кнопки: ответ приходит секунды, кнопка занята. */
-  async function run(btn, label, text, prompt, draw) {
+  async function run(btn, label, text, prompt, schema, draw) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
     out.innerHTML = loading(text);
     try {
-      draw(await ask(prompt, { temperature: 0.7 }));
+      draw(await ask(prompt, { temperature: 0.7, schema }));
     } catch (err) {
-      out.innerHTML = errorBox(err.message, err instanceof NoKeyError);
+      // Сырой ответ модели под ошибкой: по нему видно, что пришло не так.
+      out.innerHTML = errorBox(err.message, err instanceof NoKeyError) + (err.detail ? `
+        <details class="help err-detail">
+          <summary>Что ответила модель</summary>
+          <pre>${esc(err.detail)}</pre>
+        </details>` : '');
     }
     btn.disabled = false;
     btn.textContent = label;
   }
 
   exampleBtn.addEventListener('click', () => run(
-    exampleBtn, 'Пример', 'Придумываю пример…', P.examplePrompt(ctx),
+    exampleBtn, 'Пример', 'Придумываю пример…', P.examplePrompt(ctx), P.exampleSchema,
     (res) => {
       out.innerHTML = `
         <div class="result-card">
@@ -85,7 +90,7 @@ export function mountQuestionAi(slot, ctx) {
   const send = () => {
     const question = field.value.trim();
     if (!question) { field.focus(); return; }
-    return run(sendBtn, 'Спросить', 'Читаю конспект…', P.askPrompt(ctx, question), (res) => {
+    return run(sendBtn, 'Спросить', 'Читаю конспект…', P.askPrompt(ctx, question), P.askSchema, (res) => {
       out.innerHTML = `
         <div class="result-card">
           <div class="gen-item"><div class="md">${renderMd(res.answer || '')}</div></div>

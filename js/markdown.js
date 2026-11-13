@@ -47,27 +47,76 @@ const TABLE_SEP = /^\s*\|[\s:|-]+\|\s*$/;
 
 const cell = (row) => row.trim().replace(/^\||\|$/g, '').split('|').map((c) => inline(c.trim()));
 
+/** Ширина отступа строки; таб считаем за четыре пробела. */
+const indentOf = (line) => {
+  const lead = line.match(/^[ \t]*/)[0];
+  return lead.replace(/\t/g, '    ').length;
+};
+
+/** Снять с начала строки не больше `n` пробелов — отступ пункта списка. */
+const dedent = (line, n) => line.replace(new RegExp(`^ {0,${n}}`), '');
+
 /**
- * Список с вложенностью по отступу. Строка без маркера, но с отступом —
- * продолжение предыдущего пункта: в заметках так дописывают пояснение
- * следующей строкой.
+ * Список. Пункт забирает себе всё, что под ним с отступом: продолжение
+ * текста, вложенные списки, блоки кода и таблицы. Тело пункта рисуется тем
+ * же renderMd — поэтому код внутри пункта выглядит так же, как вне списка,
+ * а не рассыпается строчками текста с бэктиками.
+ *
+ * @returns {{html: string, next: number}}
  */
-function renderList(items) {
-  const ordered = /^\d/.test(items[0].marker);
-  const tag = ordered ? 'ol' : 'ul';
-  const base = items[0].indent;
+function renderList(lines, start) {
+  const first = lines[start].match(BULLET);
+  const base = indentOf(first[1]);
+  const tag = /^\d/.test(first[2]) ? 'ol' : 'ul';
+  const items = [];
+  let i = start;
 
-  let html = `<${tag}>`;
-  for (let i = 0; i < items.length; i += 1) {
-    const it = items[i];
-    if (it.indent > base) continue; // вложенные собираются ниже, вместе с родителем
+  while (i < lines.length) {
+    const m = lines[i].match(BULLET);
+    if (!m || indentOf(m[1]) !== base) break;
 
-    const nested = [];
-    while (i + 1 < items.length && items[i + 1].indent > base) nested.push(items[++i]);
+    const contentIndent = base + m[2].length + 1;
+    const body = [m[3]];
+    let fence = false;
+    i += 1;
 
-    html += `<li>${it.text.map(inline).join('<br>')}${nested.length ? renderList(nested) : ''}</li>`;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (fence) {
+        body.push(dedent(line, contentIndent));
+        if (FENCE.test(line)) fence = false;
+        i += 1;
+        continue;
+      }
+      if (!line.trim()) {
+        // Пустая строка не рвёт пункт, если дальше снова его содержимое.
+        let j = i + 1;
+        while (j < lines.length && !lines[j].trim()) j += 1;
+        if (j < lines.length && indentOf(lines[j]) > base) {
+          body.push('');
+          i += 1;
+          continue;
+        }
+        break;
+      }
+      if (indentOf(line) <= base) break;
+      if (FENCE.test(line)) fence = true;
+      body.push(dedent(line, contentIndent));
+      i += 1;
+    }
+    // Пустая строка между пунктами заканчивает список: в заметках так
+    // разделяют группы (биты/байты отдельно от таблицы int8…int64).
+    items.push(body.join('\n'));
   }
-  return `${html}</${tag}>`;
+
+  const html = items.map((body) => {
+    const inner = renderMd(body);
+    // Пункт из одного абзаца — без обёртки <p>, иначе список «разъезжается».
+    const single = /^<p>([\s\S]*)<\/p>$/.exec(inner);
+    return `<li>${single && !single[1].includes('<p>') ? single[1] : inner}</li>`;
+  }).join('');
+
+  return { html: `<${tag}>${html}</${tag}>`, next: i };
 }
 
 /**
@@ -123,18 +172,9 @@ export function renderMd(md) {
     }
 
     if (BULLET.test(line)) {
-      const items = [];
-      while (i < lines.length) {
-        const m = lines[i].match(BULLET);
-        if (m) {
-          items.push({ indent: m[1].length, marker: m[2], text: [m[3]] });
-          i += 1;
-        } else if (items.length && /^\s+\S/.test(lines[i])) {
-          items[items.length - 1].text.push(lines[i].trim()); // продолжение пункта
-          i += 1;
-        } else break;
-      }
-      out.push(renderList(items));
+      const list = renderList(lines, i);
+      out.push(list.html);
+      i = list.next;
       continue;
     }
 

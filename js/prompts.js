@@ -29,6 +29,17 @@ ${String(body).slice(0, MAX_NOTE)}`;
  * иллюстрирует (поле `point`), и форму выбирает по теме вопроса. Поле
  * показывается над примером — по нему видно, попал ли пример в вопрос.
  */
+/** Форма ответа для «Пример» — та же, что описана в конце промпта. */
+export const exampleSchema = {
+  type: 'object',
+  properties: {
+    point: { type: 'string' },
+    example: { type: 'string' },
+    why: { type: 'string' },
+  },
+  required: ['point', 'example', 'why'],
+};
+
 export const examplePrompt = (ctx) => `
 ${noteContext(ctx)}
 
@@ -56,6 +67,17 @@ Rules:
 Return JSON: {"point":"...","example":"...","why":"..."}`;
 
 /* ── Уточняющий вопрос ────────────────────────────────────── */
+
+/** Форма ответа для «Уточнить». */
+export const askSchema = {
+  type: 'object',
+  properties: {
+    answer: { type: 'string' },
+    example: { type: 'string' },
+    gap: { type: 'string' },
+  },
+  required: ['answer', 'example', 'gap'],
+};
 
 export const askPrompt = (ctx, question) => `
 ${noteContext(ctx)}

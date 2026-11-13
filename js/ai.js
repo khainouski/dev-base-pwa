@@ -50,17 +50,50 @@ Return only JSON matching the requested shape. No markdown fences, no commentary
 
 /* ── Разбор ответа ────────────────────────────────────────── */
 
-/** Модель иногда оборачивает JSON в ```-блок или в пояснение — терпим и это. */
+/**
+ * Сырые переводы строк и табы внутри строковых значений — частая поломка:
+ * модель пишет блок кода «как есть», а JSON требует \n. Экранируем управляющие
+ * символы, только пока находимся внутри строки, — структуру это не трогает.
+ */
+function escapeControlInStrings(text) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (inString) {
+      if (escaped) { escaped = false; out += ch; continue; }
+      if (ch === '\\') { escaped = true; out += ch; continue; }
+      if (ch === '"') { inString = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Модель иногда оборачивает JSON в ```-блок или в пояснение, а то и пишет
+ * переводы строк прямо в строках — терпим и это. Если не вышло, в ошибке
+ * остаётся начало сырого ответа: по нему видно, что пришло.
+ */
 function parseJson(text) {
   const clean = String(text || '').trim();
   if (!clean) throw new AiError('Пустой ответ. Попробуй ещё раз.', { code: 'empty' });
-  try {
-    return JSON.parse(clean);
-  } catch {
-    const m = clean.match(/[[{][\s\S]*[\]}]/);
-    if (m) { try { return JSON.parse(m[0]); } catch { /* падаем ниже */ } }
-    throw new AiError('Не удалось разобрать ответ. Попробуй ещё раз.', { code: 'malformed' });
+
+  const block = clean.match(/[[{][\s\S]*[\]}]/)?.[0];
+  const candidates = [clean, block, block && escapeControlInStrings(block)].filter(Boolean);
+  for (const c of candidates) {
+    try { return JSON.parse(c); } catch { /* следующий вариант */ }
   }
+  throw new AiError('Не удалось разобрать ответ. Попробуй ещё раз.', {
+    code: 'malformed',
+    detail: clean.slice(0, 600),
+  });
 }
 
 function describeHttpError(status, detail) {
@@ -174,7 +207,7 @@ const gemini = {
    * `temperature` не отправляем: у Gemini 3.6+ параметр устарел, API его
    * игнорирует, а в следующих поколениях обещает за него 400.
    */
-  async ask({ key, model, system, prompt }) {
+  async ask({ key, model, system, prompt, schema }) {
     const payload = await request(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -183,7 +216,12 @@ const gemini = {
         body: {
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            // Со схемой Gemini обязан вернуть валидный JSON ровно этой формы:
+            // без неё 3.6/3.8 ломали экранирование, когда в ответе был код.
+            ...(schema ? { responseJsonSchema: schema } : {}),
+          },
         },
       },
     );
@@ -235,9 +273,9 @@ const ADAPTERS = { claude, gemini };
  * Задать вопрос текущему провайдеру и получить разобранный JSON.
  *
  * @param {string} prompt    предметная часть запроса, см. js/prompts.js
- * @param {{temperature?: number}} [options]
+ * @param {{temperature?: number, schema?: object}} [options] schema — JSON Schema ответа, см. js/prompts.js
  */
-export async function ask(prompt, { temperature = 0.7 } = {}) {
+export async function ask(prompt, { temperature = 0.7, schema } = {}) {
   const providerId = await store.getProvider();
   const key = await store.getApiKey(providerId);
   if (!key) throw new NoKeyError();
@@ -246,7 +284,7 @@ export async function ask(prompt, { temperature = 0.7 } = {}) {
   const level = await store.getLevel();
   const adapter = ADAPTERS[providerId] || ADAPTERS[findProvider(providerId).id];
 
-  return adapter.ask({ key, model, system: systemFor(level), prompt, temperature });
+  return adapter.ask({ key, model, system: systemFor(level), prompt, temperature, schema });
 }
 
 /** Проверка из настроек: работают ли ключ и выбранная модель. */
